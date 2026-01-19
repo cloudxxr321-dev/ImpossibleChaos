@@ -2,3 +2,14 @@ name: ImpossibleChaos
 version: 1.0
 main: ImpossibleChaos
 api-version: 1.20
+
+commands:
+  chaos:
+    description: ImpossibleChaos command
+    usage: /chaos reload
+    permission: chaos.admin
+
+permissions:
+  chaos.admin:
+    description: Allows chaos reload
+    default: op
