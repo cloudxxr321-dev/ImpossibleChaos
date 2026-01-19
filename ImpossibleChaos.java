@@ -1,6 +1,8 @@
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.Block;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.*;
 import org.bukkit.event.block.*;
@@ -25,7 +27,6 @@ public class ImpossibleChaos extends JavaPlugin implements Listener {
         saveDefaultConfig();
         Bukkit.getPluginManager().registerEvents(this, this);
 
-        // Global chaos loop (adds MANY evil effects)
         new BukkitRunnable() {
             public void run() {
                 for (Player p : Bukkit.getOnlinePlayers()) {
@@ -37,7 +38,32 @@ public class ImpossibleChaos extends JavaPlugin implements Listener {
         getLogger().info("ImpossibleChaos ENABLED 😈");
     }
 
-    /* ================= CRAFTING / FURNACE ================= */
+    /* ================= COMMAND ================= */
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+
+        if (cmd.getName().equalsIgnoreCase("chaos")) {
+
+            if (!sender.hasPermission("chaos.admin")) {
+                sender.sendMessage(ChatColor.RED + "You don't have permission!");
+                return true;
+            }
+
+            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+                reloadConfig();
+                sender.sendMessage(ChatColor.GREEN + "ImpossibleChaos config reloaded 😈");
+                return true;
+            }
+
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /chaos reload");
+            return true;
+        }
+
+        return false;
+    }
+
+    /* ================= CRAFTING ================= */
 
     @EventHandler
     public void onCraft(InventoryOpenEvent e) {
@@ -134,10 +160,6 @@ public class ImpossibleChaos extends JavaPlugin implements Listener {
         if (b.getType() == Material.COPPER_ORE && getConfig().getBoolean("copper_lightning")) {
             for (int i = 0; i < 3; i++) w.strikeLightning(b.getLocation());
         }
-
-        if (b.getType() == Material.SAND && getConfig().getBoolean("sand_explode")) {
-            w.createExplosion(b.getLocation(), 2f);
-        }
     }
 
     /* ================= PLAYER ================= */
@@ -147,13 +169,9 @@ public class ImpossibleChaos extends JavaPlugin implements Listener {
         Player p = e.getPlayer();
         Block below = p.getLocation().subtract(0,1,0).getBlock();
 
-        if (below.getType().toString().contains("BED") && getConfig().getBoolean("bed_launch_player")) {
+        if (below.getType().toString().contains("BED") &&
+            getConfig().getBoolean("bed_launch_player")) {
             p.setVelocity(new Vector(0, 5, 0));
-        }
-
-        if (getConfig().getBoolean("armor_slowness") &&
-            p.getInventory().getArmorContents().length > 0) {
-            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 40, 1));
         }
     }
 
@@ -166,34 +184,19 @@ public class ImpossibleChaos extends JavaPlugin implements Listener {
         }
     }
 
-    @EventHandler
-    public void onFall(EntityDamageEvent e) {
-        if (!(e.getEntity() instanceof Player p)) return;
-        if (e.getCause() == EntityDamageEvent.DamageCause.FALL &&
-            getConfig().getBoolean("fall_blindness")) {
-            p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 100, 1));
-        }
-    }
-
-    /* ================= RANDOM CHAOS ENGINE (50+ effects) ================= */
+    /* ================= RANDOM CHAOS ================= */
 
     void randomChaos(Player p) {
+        int r = random.nextInt(6);
         World w = p.getWorld();
-        int r = random.nextInt(12);
 
         switch (r) {
-            case 0 -> { if (getConfig().getBoolean("random_lightning")) w.strikeLightning(p.getLocation()); }
-            case 1 -> { if (getConfig().getBoolean("random_explosion")) w.createExplosion(p.getLocation(), 2f); }
-            case 2 -> { if (getConfig().getBoolean("random_teleport")) p.teleport(w.getSpawnLocation()); }
-            case 3 -> { if (getConfig().getBoolean("random_mob_spawn")) w.spawnEntity(p.getLocation(), EntityType.ZOMBIE); }
-            case 4 -> { if (getConfig().getBoolean("random_potion")) p.addPotionEffect(new PotionEffect(PotionEffectType.CONFUSION, 200, 1)); }
-            case 5 -> { if (getConfig().getBoolean("random_damage")) p.damage(4); }
-            case 6 -> { if (getConfig().getBoolean("random_inventory_clear")) p.getInventory().clear(); }
-            case 7 -> { if (getConfig().getBoolean("xp_explode")) w.createExplosion(p.getLocation(), 1f); }
-            case 8 -> { if (getConfig().getBoolean("night_blindness") && w.getTime() > 13000) p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 200, 1)); }
-            case 9 -> { if (getConfig().getBoolean("rain_lightning_storm") && w.hasStorm()) w.strikeLightning(p.getLocation()); }
-            case 10 -> { if (getConfig().getBoolean("jump_random_teleport")) p.teleport(p.getLocation().add(0, 10, 0)); }
-            case 11 -> { if (getConfig().getBoolean("milk_poison")) p.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 100, 1)); }
+            case 0 -> w.strikeLightning(p.getLocation());
+            case 1 -> w.createExplosion(p.getLocation(), 2f);
+            case 2 -> p.damage(4);
+            case 3 -> w.spawnEntity(p.getLocation(), EntityType.ZOMBIE);
+            case 4 -> p.addPotionEffect(new PotionEffect(PotionEffectType.CONFUSION, 200, 1));
+            case 5 -> p.teleport(w.getSpawnLocation());
         }
     }
 
