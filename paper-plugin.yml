@@ -1,0 +1,13 @@
+name: ImpossibleChaos
+version: 1.0
+main: com.cloudxr.impossiblechaos.ImpossibleChaos
+api-version: "1.21"
+
+commands:
+  chaos:
+    description: Chaos control
+    permission: impossiblechaos.admin
+
+permissions:
+  impossiblechaos.admin:
+    default: op
