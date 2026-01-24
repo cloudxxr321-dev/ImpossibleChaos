@@ -6,8 +6,9 @@ api-version: "1.21"
 commands:
   chaos:
     description: Chaos control
-    permission: impossiblechaos.admin
+    usage: /chaos <reload|toggle>
+    permission: chaos.admin
 
 permissions:
-  impossiblechaos.admin:
+  chaos.admin:
     default: op
