@@ -1,55 +1,28 @@
-# ===== ImpossibleChaos Config =====
+bedrock_safe: true
+random_chaos_enabled: true
+random_chaos_interval_ticks: 400
 
-crafting_table_explode: true
-furnace_explode: true
+chaos:
+  crafting_table_explode: true
+  zombie_double_health: true
+  zombie_double_damage: true
+  zombie_random_armor: true
 
-zombie_double_health: true
-zombie_double_damage: true
-zombie_random_armor: true
+  skeleton_aimbot: true
+  skeleton_rapid_fire: true
 
-skeleton_aimbot: true
-skeleton_rapid_fire: true
+  creeper_always_charged: true
+  enderman_always_angry: true
 
-creeper_always_charged: true
+  iron_golem_long_reach: true
+  ender_dragon_double_health: true
 
-enderman_always_angry: true
+  stone_random_drops: true
+  wood_shoots_sticks: true
+  copper_lightning: true
 
-iron_golem_long_reach: true
+  bed_launch_player: true
+  raw_meat_poison: true
 
-ender_dragon_double_health: true
-
-stone_random_drops: true
-wood_shoots_sticks: true
-diamond_spawn_creeper: true
-obsidian_spawn_enderman: true
-copper_lightning: true
-sand_explode: true
-
-bed_launch_player: true
-armor_slowness: true
-raw_meat_poison: true
-fall_blindness: true
-
-random_lightning: true
-random_explosion: true
-random_teleport: true
-random_mob_spawn: true
-random_potion: true
-random_damage: true
-random_inventory_clear: true
-
-# Extra evil
-jump_random_teleport: true
-sprint_hunger_drain: true
-water_push_down: true
-lava_heals_mobs: true
-xp_explode: true
-sleep_spawn_mobs: true
-night_blindness: true
-rain_lightning_storm: true
-elytra_pull_down: true
-totem_kills_you: true
-milk_poison: true
-cake_explode: true
-shield_break: true
-tool_break_random: true
+# 100+ evil effects (auto-generated)
+evil_effects_enabled: true
