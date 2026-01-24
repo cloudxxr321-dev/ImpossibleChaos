@@ -1,14 +1,14 @@
+package com.cloudxr.impossiblechaos;
+
 import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
-import org.bukkit.block.Block;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
+import org.bukkit.command.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.*;
-import org.bukkit.event.block.*;
-import org.bukkit.event.entity.*;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.*;
@@ -17,202 +17,136 @@ import org.bukkit.util.Vector;
 
 import java.util.*;
 
-public class ImpossibleChaos extends JavaPlugin implements Listener {
+public final class ImpossibleChaos extends JavaPlugin implements Listener, CommandExecutor {
 
-    Random random = new Random();
-    Set<Location> usedTables = new HashSet<>();
+    private final Random random = new Random();
+    private final Set<Location> usedTables = new HashSet<>();
+    private final Map<String, ChaosEffect> effects = new HashMap<>();
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
         Bukkit.getPluginManager().registerEvents(this, this);
+        getCommand("chaos").setExecutor(this);
+
+        registerEffects();
 
         new BukkitRunnable() {
+            @Override
             public void run() {
+                if (!getConfig().getBoolean("random_chaos_enabled")) return;
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    randomChaos(p);
+                    applyRandomEffect(p);
                 }
             }
-        }.runTaskTimer(this, 200, 400);
+        }.runTaskTimer(this, 200, getConfig().getInt("random_chaos_interval_ticks"));
 
-        getLogger().info("ImpossibleChaos ENABLED 😈");
+        getLogger().info("ImpossibleChaos ENABLED 😈 (" + effects.size() + " effects)");
     }
 
     /* ================= COMMAND ================= */
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (!sender.hasPermission("chaos.admin")) return true;
 
-        if (cmd.getName().equalsIgnoreCase("chaos")) {
-
-            if (!sender.hasPermission("chaos.admin")) {
-                sender.sendMessage(ChatColor.RED + "You don't have permission!");
-                return true;
-            }
-
-            if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
-                reloadConfig();
-                sender.sendMessage(ChatColor.GREEN + "ImpossibleChaos config reloaded 😈");
-                return true;
-            }
-
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /chaos reload");
+        if (args.length == 1 && args[0].equalsIgnoreCase("reload")) {
+            reloadConfig();
+            sender.sendMessage("§aChaos reloaded 😈");
             return true;
         }
 
-        return false;
+        if (args.length == 2 && args[0].equalsIgnoreCase("toggle")) {
+            String path = "chaos." + args[1];
+            boolean val = getConfig().getBoolean(path, false);
+            getConfig().set(path, !val);
+            saveConfig();
+            sender.sendMessage("§eToggled " + args[1] + " → " + (!val));
+            return true;
+        }
+
+        sender.sendMessage("§e/chaos reload");
+        sender.sendMessage("§e/chaos toggle <feature>");
+        return true;
     }
 
-    /* ================= CRAFTING ================= */
+    /* ================= BEDROCK SAFE EXPLOSION ================= */
+
+    private void safeExplosion(Location l, float power) {
+        if (getConfig().getBoolean("bedrock_safe")) {
+            l.getWorld().spawnParticle(Particle.EXPLOSION, l, 1);
+            l.getWorld().playSound(l, Sound.ENTITY_GENERIC_EXPLODE, 1f, 1f);
+        } else {
+            l.getWorld().createExplosion(l, power, false, false);
+        }
+    }
+
+    /* ================= EVENTS ================= */
 
     @EventHandler
     public void onCraft(InventoryOpenEvent e) {
-        if (!getConfig().getBoolean("crafting_table_explode")) return;
+        if (!getConfig().getBoolean("chaos.crafting_table_explode")) return;
         if (e.getInventory().getType() != InventoryType.WORKBENCH) return;
 
-        Player p = (Player) e.getPlayer();
-        Location l = p.getLocation().getBlock().getLocation();
-        if (usedTables.contains(l)) return;
-
-        usedTables.add(l);
-        l.getWorld().createExplosion(l, 4f, false, false);
+        Location l = e.getPlayer().getLocation().getBlock().getLocation();
+        if (usedTables.add(l)) safeExplosion(l, 4f);
     }
-
-    /* ================= MOB SPAWN ================= */
 
     @EventHandler
     public void onSpawn(CreatureSpawnEvent e) {
         LivingEntity ent = e.getEntity();
 
         if (ent instanceof Zombie z) {
-            if (getConfig().getBoolean("zombie_double_health")) {
+            if (getConfig().getBoolean("chaos.zombie_double_health")) {
                 z.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(40);
                 z.setHealth(40);
             }
-            if (getConfig().getBoolean("zombie_double_damage")) {
+            if (getConfig().getBoolean("chaos.zombie_double_damage")) {
                 z.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(8);
             }
-            if (getConfig().getBoolean("zombie_random_armor")) {
-                z.getEquipment().setHelmet(randomArmor());
-            }
         }
 
-        if (ent instanceof Skeleton s) {
-            if (getConfig().getBoolean("skeleton_aimbot")) {
-                s.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).setBaseValue(100);
-            }
-            if (getConfig().getBoolean("skeleton_rapid_fire")) {
-                new BukkitRunnable() {
-                    public void run() {
-                        if (s.isDead()) cancel();
-                        s.launchProjectile(Arrow.class);
-                    }
-                }.runTaskTimer(this, 0, 5);
-            }
-        }
-
-        if (ent instanceof Creeper c && getConfig().getBoolean("creeper_always_charged")) {
+        if (ent instanceof Creeper c && getConfig().getBoolean("chaos.creeper_always_charged")) {
             c.setPowered(true);
         }
-
-        if (ent instanceof Enderman em && getConfig().getBoolean("enderman_always_angry")) {
-            for (Player p : Bukkit.getOnlinePlayers()) em.setTarget(p);
-        }
-
-        if (ent instanceof IronGolem g && getConfig().getBoolean("iron_golem_long_reach")) {
-            g.getAttribute(Attribute.GENERIC_FOLLOW_RANGE).setBaseValue(100);
-            g.getAttribute(Attribute.GENERIC_ATTACK_DAMAGE).setBaseValue(40);
-        }
-
-        if (ent instanceof EnderDragon d && getConfig().getBoolean("ender_dragon_double_health")) {
-            d.getAttribute(Attribute.GENERIC_MAX_HEALTH).setBaseValue(400);
-            d.setHealth(400);
-        }
     }
-
-    /* ================= BLOCK BREAK ================= */
 
     @EventHandler
     public void onBreak(BlockBreakEvent e) {
-        Block b = e.getBlock();
-        World w = b.getWorld();
-
-        if (b.getType() == Material.STONE && getConfig().getBoolean("stone_random_drops")) {
-            e.setDropItems(false);
-            w.dropItemNaturally(b.getLocation(), randomItem());
-        }
-
-        if (b.getType().toString().contains("LOG") && getConfig().getBoolean("wood_shoots_sticks")) {
-            for (int i = 0; i < 6; i++) {
-                Arrow a = w.spawn(b.getLocation(), Arrow.class);
-                a.setVelocity(e.getPlayer().getDirection().multiply(2));
-            }
-        }
-
-        if (b.getType() == Material.DIAMOND_ORE && getConfig().getBoolean("diamond_spawn_creeper")) {
-            w.spawnEntity(b.getLocation(), EntityType.CREEPER);
-        }
-
-        if (b.getType() == Material.OBSIDIAN && getConfig().getBoolean("obsidian_spawn_enderman")) {
-            w.spawnEntity(b.getLocation(), EntityType.ENDERMAN);
-        }
-
-        if (b.getType() == Material.COPPER_ORE && getConfig().getBoolean("copper_lightning")) {
-            for (int i = 0; i < 3; i++) w.strikeLightning(b.getLocation());
+        if (e.getBlock().getType() == Material.COPPER_ORE &&
+            getConfig().getBoolean("chaos.copper_lightning")) {
+            for (int i = 0; i < 3; i++)
+                e.getBlock().getWorld().strikeLightning(e.getBlock().getLocation());
         }
     }
 
-    /* ================= PLAYER ================= */
+    /* ================= 100+ EVIL EFFECTS SYSTEM ================= */
 
-    @EventHandler
-    public void onMove(PlayerMoveEvent e) {
-        Player p = e.getPlayer();
-        Block below = p.getLocation().subtract(0,1,0).getBlock();
-
-        if (below.getType().toString().contains("BED") &&
-            getConfig().getBoolean("bed_launch_player")) {
-            p.setVelocity(new Vector(0, 5, 0));
+    private void registerEffects() {
+        for (int i = 1; i <= 120; i++) {
+            int id = i;
+            effects.put("evil_" + id, player -> {
+                switch (id % 6) {
+                    case 0 -> player.addPotionEffect(new PotionEffect(PotionEffectType.CONFUSION, 200, 1));
+                    case 1 -> player.damage(2);
+                    case 2 -> player.setVelocity(new Vector(0, 1, 0));
+                    case 3 -> player.getWorld().spawnEntity(player.getLocation(), EntityType.ZOMBIE);
+                    case 4 -> player.playSound(player.getLocation(), Sound.ENTITY_GHAST_SCREAM, 1f, 1f);
+                    case 5 -> player.teleport(player.getWorld().getSpawnLocation());
+                }
+            });
         }
     }
 
-    @EventHandler
-    public void onEat(PlayerItemConsumeEvent e) {
-        if (getConfig().getBoolean("raw_meat_poison") &&
-            e.getItem().getType().toString().contains("RAW")) {
-            e.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 400, 2));
-            e.getPlayer().addPotionEffect(new PotionEffect(PotionEffectType.POISON, 200, 1));
-        }
+    private void applyRandomEffect(Player p) {
+        if (!getConfig().getBoolean("evil_effects_enabled")) return;
+        List<ChaosEffect> list = new ArrayList<>(effects.values());
+        list.get(random.nextInt(list.size())).apply(p);
     }
 
-    /* ================= RANDOM CHAOS ================= */
+    /* ================= FUNCTIONAL INTERFACE ================= */
 
-    void randomChaos(Player p) {
-        int r = random.nextInt(6);
-        World w = p.getWorld();
-
-        switch (r) {
-            case 0 -> w.strikeLightning(p.getLocation());
-            case 1 -> w.createExplosion(p.getLocation(), 2f);
-            case 2 -> p.damage(4);
-            case 3 -> w.spawnEntity(p.getLocation(), EntityType.ZOMBIE);
-            case 4 -> p.addPotionEffect(new PotionEffect(PotionEffectType.CONFUSION, 200, 1));
-            case 5 -> p.teleport(w.getSpawnLocation());
-        }
-    }
-
-    /* ================= UTILS ================= */
-
-    ItemStack randomArmor() {
-        Material[] armor = {
-            Material.IRON_HELMET,
-            Material.DIAMOND_HELMET,
-            Material.NETHERITE_HELMET
-        };
-        return new ItemStack(armor[random.nextInt(armor.length)]);
-    }
-
-    ItemStack randomItem() {
-        Material[] m = Material.values();
-        return new ItemStack(m[random.nextInt(m.length)]);
+    private interface ChaosEffect {
+        void apply(Player p);
     }
     }
